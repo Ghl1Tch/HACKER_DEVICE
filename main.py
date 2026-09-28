@@ -1,232 +1,518 @@
+#!/usr/bin/env python3
+
 import os
-import sys
 import socket
 import subprocess
-import time
 import threading
+import asyncio
+import aiohttp
+import time
+import shutil
+
+
+
 
 class Colors:
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    BLUE = '\033[94m'
-    CYAN = '\033[96m'
-    RESET = '\033[0m'
+    RESET = "\033[0m"
+    RED = "\033[91m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    CYAN = "\033[96m"
+    BOLD = "\033[1m"
 
-class PwnTerminal:
+
+
+
+class HACKER_DEVICE:
+    # Initialize terminal variables
     def __init__(self):
         self.hostname = socket.gethostname()
         self.history = []
+        self.last_scan = []
+    # Clear the terminal screen
+    def clear(self):
+        os.system("clear")
+    # Display the main HACKER-OS banner
+    def banner(self):
+        print(Colors.GREEN + Colors.BOLD)
+        print("╔══════════════════════════════════════════════╗")
+        print("║             HACKER-OS TERMINAL               ║")
+        print("║                 ANDROID EDITION              ║")
+        print("╠══════════════════════════════════════════════╣")
+        print(f"║    HOST   : {self.hostname:<33}║")
+        print("║    STATUS : ONLINE                           ║")
+        print("╚══════════════════════════════════════════════╝")
+        print(Colors.RESET)
+    # Display a Fastfetch-style system profile
+    def fastfetch(self):
+        print(Colors.GREEN + Colors.BOLD)
 
-    def clear_screen(self):
-        os.system('clear')
+        print("        ██████╗ ██╗  ██╗██╗     ")
+        print("       ██╔════╝ ██║  ██║██║     ")
+        print("       ██║  ███╗███████║██║     ")
+        print("       ██║   ██║██╔══██║██║     ")
+        print("       ╚██████╔╝██║  ██║███████╗")
+        print("        ╚═════╝ ╚═╝  ╚═╝╚══════╝")
 
-    def print_banner(self):
-        print(f"{Colors.CYAN}╔══════════════════════════════════════════════╗{Colors.RESET}")
-        print(f"{Colors.GREEN}║     PWN-TERMINAL OS v2.0 | ANDROID EDITION   ║{Colors.RESET}")
-        print(f"{Colors.CYAN}╚══════════════════════════════════════════════╝{Colors.RESET}")
-        print(f"[+] System: {Colors.GREEN}ONLINE{Colors.RESET} | Type 'help' for commands\n")
+        print(Colors.RESET)
 
-    def run_netscan(self):
-        """Сканирование сети через ARP-таблицу"""
-        print(f"\n{Colors.YELLOW}[*] Scanning local network (ARP table)...{Colors.RESET}")
+        print(Colors.CYAN + "────────────────────────────────────" + Colors.RESET)
+        print(f"{Colors.GREEN}User      :{Colors.RESET} ghl1tch")
+        print(f"{Colors.GREEN}Hostname  :{Colors.RESET} {self.hostname}")
+        print(f"{Colors.GREEN}OS        :{Colors.RESET} Hacker OS")
+        print(f"{Colors.GREEN}Terminal  :{Colors.RESET} HACKER-OS TERMINAL")
+        print(f"{Colors.GREEN}Status    :{Colors.RESET} ONLINE")
+        print(Colors.CYAN + "────────────────────────────────────" + Colors.RESET)
+    # Scan the local ARP network table
+    def netscan(self):
+        print(Colors.CYAN + "\n[+] NETWORK SCAN" + Colors.RESET)
         try:
-            with open("/proc/net/arp", "r") as f:
-                lines = f.readlines()
-            
-            print(f"\n{Colors.GREEN}{'IP Address':<16} {'MAC Address':<18} {'Interface':<10}{Colors.RESET}")
-            print("-" * 50)
-            
-            devices = []
-            for line in lines[1:]:
+            with open("/proc/net/arp") as file:
+                lines = file.readlines()[1:]
+            self.last_scan = []
+            for line in lines:
                 parts = line.split()
-                if len(parts) >= 4 and parts[0] != "IP":
-                    ip = parts[0]
-                    mac = parts[3]
-                    iface = parts[5] if len(parts) > 5 else "?"
-                    if mac != "00:00:00:00:00:00":
-                        devices.append((ip, mac, iface))
-                        print(f"{ip:<16} {mac:<18} {iface:<10}")
-            
-            print(f"\n{Colors.BLUE}[+] Found {len(devices)} active devices{Colors.RESET}")
-            
-            # Сохраняем для portscan
-            self.last_scan = [d[0] for d in devices]
-            
+                if len(parts) >= 6 and parts[3] != "00:00:00:00:00:00":
+                    ip, mac, interface = parts[0], parts[3], parts[5]
+                    self.last_scan.append(
+                        (ip, mac, interface)
+                    )
+                    print(
+                        f"[+] {ip:<16} "
+                        f"{mac:<18} "
+                        f"{interface}"
+                    )
+            print(
+                f"\n[+] Devices: "
+                f"{len(self.last_scan)}"
+            )
         except Exception as e:
-            print(f"{Colors.RED}[!] Error: {str(e)}{Colors.RESET}")
-        input(f"\n{Colors.BLUE}Press Enter...{Colors.RESET}")
-
-    def run_portscan(self, target):
-        """Многопоточный сканер портов"""
-        print(f"\n{Colors.YELLOW}[*] Scanning {target}...{Colors.RESET}")
-        
-        ports = {
-            21: "FTP", 22: "SSH", 23: "Telnet", 25: "SMTP", 
-            53: "DNS", 80: "HTTP", 110: "POP3", 139: "NetBIOS",
-            443: "HTTPS", 445: "SMB", 3306: "MySQL", 3389: "RDP", 
-            8080: "HTTP-Alt", 5555: "ADB"
-        }
-        
-        try:
-            target_ip = socket.gethostbyname(target)
-            print(f"{Colors.GREEN}[+] Target: {target_ip}{Colors.RESET}\n")
-            print(f"{Colors.BLUE}{'PORT':<8} {'STATE':<10} {'SERVICE':<15}{Colors.RESET}")
-            print("-" * 35)
-            
-            open_ports = []
-            
-            def scan_port(port, service):
-                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                s.settimeout(0.5)
-                if s.connect_ex((target_ip, port)) == 0:
-                    print(f"{Colors.GREEN}{port:<8} {'OPEN':<10} {service:<15}{Colors.RESET}")
-                    open_ports.append(port)
-                s.close()
-            
-            # Запускаем потоки
-            threads = []
-            for port, service in ports.items():
-                t = threading.Thread(target=scan_port, args=(port, service))
-                t.start()
-                threads.append(t)
-                time.sleep(0.01)  # Небольшая задержка для стабильности
-            
-            for t in threads:
-                t.join()
-            
-            if not open_ports:
-                print(f"{Colors.RED}[-] No open ports found{Colors.RESET}")
-            else:
-                print(f"\n{Colors.GREEN}[+] Total open: {len(open_ports)}{Colors.RESET}")
-                
-        except Exception as e:
-            print(f"{Colors.RED}[!] Error: {str(e)}{Colors.RESET}")
-        input(f"\n{Colors.BLUE}Press Enter...{Colors.RESET}")
-
-    def run_sysinfo(self):
-        """Детальная информация о системе"""
-        print(f"\n{Colors.GREEN}=== SYSTEM DIAGNOSTICS ==={Colors.RESET}")
-        print(f"Hostname: {self.hostname}")
-        print(f"Platform: Android (Termux Linux)")
-        
-        # Получаем инфу через uname
-        try:
-            uname = subprocess.check_output(['uname', '-a']).decode().strip()
-            print(f"Kernel: {uname}")
-        except:
-            pass
-        
-        # Инфо о батарее (Android specific)
-        try:
-            with open("/sys/class/power_supply/battery/capacity", "r") as f:
-                batt = f.read().strip()
-            print(f"Battery: {batt}%")
-        except:
-            pass
-        
-        # CPU info
-        try:
-            with open("/proc/cpuinfo", "r") as f:
-                cpu = f.read()
-            cores = cpu.count("processor")
-            model = [l for l in cpu.split('\n') if 'model name' in l]
-            if model:
-                print(f"CPU: {model[0].split(':')[1].strip()} ({cores} cores)")
-        except:
-            pass
-            
-        input(f"\n{Colors.BLUE}Press Enter...{Colors.RESET}")
-
-    def run_shell(self, cmd):
-        """Выполнение системных команд"""
-        command = " ".join(cmd)
-        print(f"{Colors.YELLOW}[*] Executing: {command}{Colors.RESET}\n")
-        try:
-            subprocess.run(command, shell=True)
-        except Exception as e:
-            print(f"{Colors.RED}[!] Error: {str(e)}{Colors.RESET}")
-        input(f"\n{Colors.BLUE}Press Enter...{Colors.RESET}")
-
-    def start_ssh(self):
-        """Запуск SSH сервера"""
-        print(f"\n{Colors.YELLOW}[*] Starting SSH server...{Colors.RESET}")
-        try:
-            # Проверяем установлен ли openssh
-            result = subprocess.run(['which', 'sshd'], capture_output=True)
-            if result.returncode != 0:
-                print(f"{Colors.RED}[!] OpenSSH not installed. Run: pkg install openssh{Colors.RESET}")
-                input("Press Enter...")
-                return
-            
-            subprocess.Popen(['sshd'])
-            time.sleep(1)
-            
-            # Получаем IP
-            ip = subprocess.check_output(['ifconfig', 'wlan0']).decode()
-            ip = [l for l in ip.split('\n') if 'inet ' in l][0].split()[1]
-            
-            print(f"{Colors.GREEN}[+] SSH server started!{Colors.RESET}")
-            print(f"{Colors.CYAN}[i] Connect from PC:{Colors.RESET}")
-            print(f"    ssh -p 8022 $(whoami)@{ip}")
-            
-        except Exception as e:
-            print(f"{Colors.RED}[!] Error: {str(e)}{Colors.RESET}")
-        input(f"\n{Colors.BLUE}Press Enter...{Colors.RESET}")
-
-    def show_help(self):
-        print(f"\n{Colors.YELLOW}Available Commands:{Colors.RESET}")
-        print(f"  {Colors.GREEN}netscan{Colors.RESET}          - Scan local network (ARP)")
-        print(f"  {Colors.GREEN}portscan <ip>{Colors.RESET}    - Scan ports on target")
-        print(f"  {Colors.GREEN}sysinfo{Colors.RESET}          - System information")
-        print(f"  {Colors.GREEN}shell <cmd>{Colors.RESET}      - Execute system command")
-        print(f"  {Colors.GREEN}ssh{Colors.RESET}              - Start SSH server")
-        print(f"  {Colors.GREEN}clear{Colors.RESET}            - Clear screen")
-        print(f"  {Colors.GREEN}exit{Colors.RESET}             - Shutdown terminal")
-        input(f"\n{Colors.BLUE}Press Enter...{Colors.RESET}")
-
-    def start(self):
-        while True:
-            self.clear_screen()
-            self.print_banner()
-            
+            print(
+                f"{Colors.RED}"
+                f"[!] {e}"
+                f"{Colors.RESET}"
+            )
+    # Scan common TCP ports on a target
+    def portscan(self, target):
+        ports = [
+            21, 22, 23, 25, 53,
+            80, 110, 139, 143,
+            443, 445, 3306, 3389, 8080
+        ]
+        print(
+            Colors.CYAN +
+            f"\n[+] PORT SCAN: {target}" +
+            Colors.RESET
+        )
+        def scan(port):
             try:
-                cmd = input(f"{Colors.GREEN}pwn_sh# {Colors.RESET}").strip()
-                if not cmd:
-                    continue
-                
-                parts = cmd.split()
-                command = parts[0].lower()
-                args = parts[1:]
-                
-                if command == "help":
-                    self.show_help()
-                elif command == "netscan":
-                    self.run_netscan()
-                elif command == "portscan" and args:
-                    self.run_portscan(args[0])
-                elif command == "sysinfo":
-                    self.run_sysinfo()
-                elif command == "shell" and args:
-                    self.run_shell(args)
-                elif command == "ssh":
-                    self.start_ssh()
-                elif command == "clear":
-                    continue
-                elif command == "exit":
-                    print(f"\n{Colors.RED}[!] Shutting down...{Colors.RESET}")
-                    sys.exit(0)
-                else:
-                    print(f"{Colors.RED}[!] Unknown: {command}{Colors.RESET}")
-                    time.sleep(1)
-                    
-            except KeyboardInterrupt:
-                print(f"\n{Colors.YELLOW}[!] Ctrl+C detected. Type 'exit' to quit.{Colors.RESET}")
-                time.sleep(1)
-            except Exception as e:
-                print(f"{Colors.RED}[!] Error: {str(e)}{Colors.RESET}")
-                time.sleep(1)
+                sock = socket.socket(
+                    socket.AF_INET,
+                    socket.SOCK_STREAM
+                )
+                sock.settimeout(0.5)
+                if sock.connect_ex(
+                    (target, port)
+                ) == 0:
+                    print(
+                        f"{Colors.GREEN}"
+                        f"[OPEN] {port}"
+                        f"{Colors.RESET}"
+                    )
+                sock.close()
+            except Exception:
+                pass
+        threads = [
+            threading.Thread(
+                target=scan,
+                args=(port,)
+            )
+            for port in ports
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        print(
+            Colors.GREEN +
+            "[+] Scan complete" +
+            Colors.RESET
+        )
+    # Display basic system information
+    def sysinfo(self):
+        print(
+            Colors.CYAN +
+            "\n[+] SYSTEM INFORMATION" +
+            Colors.RESET
+        )
+        try:
+            system = subprocess.check_output(
+                ["uname", "-a"],
+                text=True
+            ).strip()
+            print(f"System   : {system}")
+            print(f"Hostname : {self.hostname}")
+            print(f"CPU      : {os.cpu_count()} cores")
+        except Exception as e:
+            print(
+                f"{Colors.RED}"
+                f"[!] {e}"
+                f"{Colors.RESET}"
+            )
+    # Execute a local shell command
+    def shell(self, command):
+        subprocess.run(command, shell=True)
+    # Start the SSH service and display the local address
+    def ssh(self):
+        print(
+            Colors.CYAN +
+            "\n[+] SSH SERVICE" +
+            Colors.RESET
+        )
+        if subprocess.run(
+            "pgrep sshd",
+            shell=True
+        ).returncode != 0:
+            subprocess.run(
+                "sshd",
+                shell=True
+            )
+        try:
+            ip = subprocess.check_output(
+                "ip route get 1.1.1.1 | awk '{print $7; exit}'",
+                shell=True,
+                text=True
+            ).strip()
+            user = os.getenv(
+                "USER",
+                "user"
+            )
+            print(
+                f"{Colors.GREEN}"
+                f"[+] SSH: ssh {user}@{ip}"
+                f"{Colors.RESET}"
+            )
+        except Exception as e:
+            print(
+                f"{Colors.RED}"
+                f"[!] {e}"
+                f"{Colors.RESET}"
+            )
+    # Display a system activity animation
+    def hackshow(self):
+        print(
+            Colors.GREEN +
+            "\n[+] SYSTEM ACCESS" +
+            Colors.RESET
+        )
+        for name in [
+            "Initializing modules",
+            "Scanning interfaces",
+            "Analyzing network",
+            "Processing packets",
+            "Loading system data",
+            "Finalizing operation"
+        ]:
+            print(f"[*] {name}")
 
+            for i in range(20):
+                print(
+                    f"\r[{('#' * (i + 1)).ljust(20)}]"
+                    f" {(i + 1) * 5}%",
+                    end=""
+                )
+
+                time.sleep(0.03)
+            print()
+        print(
+            Colors.GREEN +
+            "[+] Operation complete" +
+            Colors.RESET
+        )
+    # Display a local login demonstration
+    def phishing(self):
+        print(
+            Colors.CYAN +
+            "\n[+] LOGIN INTERFACE" +
+            Colors.RESET
+        )
+        username = input("Login: ")
+        input("Password: ")
+        print(
+            Colors.GREEN +
+            f"\n[+] Account: {username}" +
+            Colors.RESET
+        )
+        print("[+] Request processed")
+    # Create an altered copy of a local file
+    def encrypt(self, filename):
+        if not os.path.isfile(filename):
+            print(
+                f"{Colors.RED}"
+                "[!] File not found"
+                f"{Colors.RESET}"
+            )
+            return
+        output = filename + ".encrypted"
+        try:
+            shutil.copy2(
+                filename,
+                output
+            )
+
+            with open(
+                output,
+                "rb"
+            ) as file:
+                data = file.read()
+
+            data = bytes(
+                byte ^ 0xAA
+                for byte in data
+            )
+
+            with open(
+                output,
+                "wb"
+            ) as file:
+                file.write(data)
+
+            print(
+                Colors.GREEN +
+                f"[+] Created: {output}" +
+                Colors.RESET
+            )
+        except Exception as e:
+            print(
+                f"{Colors.RED}"
+                f"[!] {e}"
+                f"{Colors.RESET}"
+            )
+    # Search a text file for selected keywords
+    def logscan(self, filename):
+        if not os.path.isfile(filename):
+            print(
+                f"{Colors.RED}"
+                "[!] File not found"
+                f"{Colors.RESET}"
+            )
+            return
+        try:
+            with open(
+                filename,
+                "r",
+                errors="ignore"
+            ) as file:
+                lines = file.readlines()
+            keywords = [
+                "password",
+                "login",
+                "username",
+                "admin"
+            ]
+            matches = 0
+            for line in lines:
+                if any(
+                    word in line.lower()
+                    for word in keywords
+                ):
+                    print(
+                        "[MATCH] Sensitive keyword detected"
+                    )
+
+                    matches += 1
+            print(
+                f"\n[+] Matches: {matches}"
+            )
+        except Exception as e:
+            print(
+                f"{Colors.RED}"
+                f"[!] {e}"
+                f"{Colors.RESET}"
+            )
+    # Display reverse-link architecture information
+    def reverse(self):
+        print(
+            Colors.CYAN +
+            "\n[+] REVERSE LINK" +
+            Colors.RESET
+        )
+        print("[+] Connection architecture")
+        print("[+] Client -> Server")
+        print("[+] Authentication required")
+        print("[+] Command channel disabled")
+    # Send one local HTTP request
+    async def stress_worker(self, session):
+        try:
+            async with session.get(
+                "http://127.0.0.1:8080",
+                timeout=3
+            ):
+                return True
+        except Exception:
+            return False
+    # Run the local HTTP load demonstration
+    async def stress_async(self):
+        print(
+            Colors.CYAN +
+            "\n[+] STRESS" +
+            Colors.RESET
+        )
+        print("[+] Target: 127.0.0.1:8080")
+        async with aiohttp.ClientSession() as session:
+            tasks = [
+                self.stress_worker(session)
+                for _ in range(20)]
+            results = await asyncio.gather(
+                *tasks
+            )
+        print(
+            Colors.GREEN +
+            f"[+] Requests completed: "
+            f"{sum(results)}/20" +
+            Colors.RESET
+        )
+    # Start the local HTTP load demonstration
+    def stress(self):
+        asyncio.run(
+            self.stress_async()
+        )
+    # Open the GitHub profile
+    def github(self):
+        url = "https://github.com/Ghl1Tch"
+        print(
+            Colors.CYAN +
+            "\n[+] GITHUB" +
+            Colors.RESET
+        )
+        print(f"[+] {url}")
+        subprocess.run(
+            ["xdg-open", url]
+        )
+    # Open the GitHub repository
+    def githubrepo(self):
+        url = "https://github.com/Ghl1Tch/JeremyAI_betaversion"
+        print(
+            Colors.CYAN +
+            "\n[+] GITHUB REPOSITORY" +
+            Colors.RESET
+        )
+        print(f"[+] {url}")
+        subprocess.run(
+            ["xdg-open", url]
+        )
+    # Update the current Git repository
+    def update(self):
+        print(
+            Colors.CYAN +
+            "\n[+] REPOSITORY UPDATE" +
+            Colors.RESET
+        )
+        print(
+            "[*] Pulling latest commit..."
+        )
+        subprocess.run(
+            ["git", "pull"]
+        )
+    # Display the available commands
+    def help(self):
+        print(
+            Colors.CYAN +
+            "\nCOMMANDS" +
+            Colors.RESET
+        )
+        print("netscan              — Scan network")
+        print("portscan <ip>        — Scan TCP ports")
+        print("sysinfo              — Show system information")
+        print("shell <command>      — Run shell command")
+        print("ssh                  — Start SSH service")
+        print("hackshow             — Show system activity")
+        print("phishing             — Show login demo")
+        print("encrypt <file>       — Encrypt file copy")
+        print("logscan <file>       — Scan log file")
+        print("reverse              — Show reverse-link info")
+        print("stress               — Localhost stress test")
+        print("fastfetch            — Show system profile")
+        print("github               — Open GitHub profile")
+        print("githubrepo           — Open GitHub repository")
+        print("update               — Update repository")
+        print("clear                — Clear terminal")
+        print("help                 — Show command list")
+        print("exit                 — Close terminal")
+    # Start the main terminal loop
+    def start(self):
+        self.clear()
+        self.banner()
+        while True:
+            try:
+                command = input(
+                    Colors.GREEN +
+                    "\npwn@android:~$ " +
+                    Colors.RESET
+                ).strip()
+                if not command:
+                    continue
+                self.history.append(command)
+                parts = command.split(
+                    " ",
+                    1
+                )
+                action = parts[0].lower()
+                argument = (
+                    parts[1]
+                    if len(parts) > 1
+                    else ""
+                )
+                if action == "netscan":
+                    self.netscan()
+                elif action == "portscan":
+                    argument and self.portscan(argument) or print("Usage: portscan <ip>")
+                elif action == "sysinfo":
+                    self.sysinfo()
+                elif action == "shell":
+                    argument and self.shell(argument) or print("Usage: shell <command>")
+                elif action == "ssh":
+                    self.ssh()
+                elif action == "hackshow":
+                    self.hackshow()
+                elif action == "phishing":
+                    self.phishing()
+                elif action == "encrypt":
+                    argument and self.encrypt(argument) or print("Usage: encrypt <file>")
+                elif action == "logscan":
+                    argument and self.logscan(argument) or print("Usage: logscan <file>")
+                elif action == "reverse":
+                    self.reverse()
+                elif action == "stress":
+                    self.stress()
+                elif action == "fastfetch":
+                    self.fastfetch()
+                elif action == "github":
+                    self.github()
+                elif action == "githubrepo":
+                    self.githubrepo()
+                elif action == "update":
+                    self.update()
+                elif action == "clear":
+                    self.clear()
+                    self.banner()
+                elif action == "help":
+                    self.help()
+                elif action == "exit":
+                    print("[+] Terminal closed")
+                    break
+                else:
+                    print("[!] Unknown command")
+            except KeyboardInterrupt:
+                print("\n[!] Use exit to close")
+            except Exception as e:
+                print(
+                    f"{Colors.RED}"
+                    f"[!] {e}"
+                    f"{Colors.RESET}"
+                )
+# Start the application
+def main():
+    HACKER_DEVICE().start()
 if __name__ == "__main__":
-    term = PwnTerminal()
-    term.start()
+    main()
