@@ -26,9 +26,24 @@ class HACKER_DEVICE:
         self.history = []
         self.last_scan = []
         self.current_color = Colors.GREEN
-
+        self.user_name = None
+        self.user_pssword = None
     def clear(self):
         os.system("clear" if os.name != "nt" else "cls")
+    def register(self):
+        if user_pssword == None and user_name == None:
+            user_name = input("Enter your name:     ")
+            user_pssword = input("Enter your password: ")
+            return user_name, user_pssword
+        elif user_pssword == True or user_name == True:
+            user_name = input("Enter your name:     ")
+            user_pssword = input("Enter your password: ")
+            print("\033[31mError occurred during registration; please try again.\033[0m")
+            return user_name == None, user_pssword == None 
+        elif user_name & user_pssword == True:
+            print("Your user name:  "+user_name)
+            print("Your password:   "+"*"*len(user_pssword))
+        
 
     def banner(self):
         print(self.current_color + Colors.BOLD)
@@ -40,21 +55,23 @@ class HACKER_DEVICE:
 
     def fastfetch(self):
         print(self.current_color + Colors.BOLD)
-        print(" ██████╗ ██╗ ██╗██╗ ██╗████████╗ ██████╗██╗ ██╗")
-        print(" ██╔════╝ ██║ ██║██║ ██║╚══██╔══╝██╔════╝██║ ██║")
-        print(" ██║ ███╗███████║██║ ██║ ██║ ██║ ███████║")
-        print(" ██║ ██║██╔══██║██║ ██║ ██║ ██║ ██╔══██║")
-        print(" ╚██████╔╝██║ ██║███████╗██║ ██║ ╚██████╗██║ ██║")
-        print(" ╚═════╝ ╚═╝ ╚═╝╚══════╝╚═╝ ╚═╝ ╚═════╝╚═╝ ╚═╝")
+        print("\033[92m")
+        print(r"""
+         ██████╗ ██╗  ██╗██╗      ██╗████████╗ ██████╗██╗  ██╗
+        ██╔════╝ ██║  ██║██║      ██║╚══██╔══╝██╔════╝██║  ██║
+        ██║  ███╗███████║██║      ██║   ██║   ██║     ███████║
+        ██║   ██║██╔══██║██║      ██║   ██║   ██║     ██╔══██║
+        ╚██████╔╝██║  ██║███████╗ ██║   ██║   ╚██████╗██║  ██║
+         ╚═════╝ ╚═╝  ╚═╝╚══════╝ ╚═╝   ╚═╝    ╚═════╝╚═╝  ╚═╝
+        """)
+        print("\033[0m")
         print(Colors.RESET)
         print(Colors.CYAN + "──────────────────────────────────────────────────────" + Colors.RESET)
-        print(f"{self.current_color}User :{Colors.RESET} ghl1tch")
+        print(f"{self.current_color}User :{Colors.RESET} ")#This for edit
         print(f"{self.current_color}Hostname :{Colors.RESET} {self.hostname}")
-        print(f"{self.current_color}Terminal :{Colors.RESET} HACKER TERMINAL Core")
-        print(f"{self.current_color}OS :{Colors.RESET} EndeavourOS Environment")
-        print(f"{self.current_color}Status :{Colors.RESET} OPERATIONAL")
+        print(f"{self.current_color}Terminal :{Colors.RESET} HACKER_TERMINAL")
+        print(f"{self.current_color}Status :{Colors.RESET} ACTIVE")
         print(Colors.RESET)
-
     def netscan(self):
         # Implement netscan logic using /proc/net/arp
         # Example:
@@ -234,31 +251,6 @@ class HACKER_DEVICE:
             s.close()
         except Exception as e:
             print(f"Error setting up HTTP stress test: {e}")
-#BASHELP
-    def bashhelper(self):
-        cyan = "\033[96m"
-        reset = "\033[0m"
-        yellow = "\033[93m"
-        green = "\033[92m"
-        
-        print(yellow + "\nInteractive Bash Command Documentation:" + reset)
-        print(cyan + "──────────────────────────────────────────────────────" + reset)
-        print(f"  {green}FILE OPERATIONS:{reset}")
-        print("    ls -la          - List all directory contents (detailed + hidden files)")
-        print("    cd <path>       - Change active directory (e.g., cd ~ or cd ..)")
-        print("    mkdir <name>    - Create a new directory")
-        print("    rm -rf <path>   - Force remove files or folders recursively")
-        print("    cp -r <src> <dst>- Copy files/folders to a new location")
-        print(f"\n  {green}NETWORKING & AUDIT:{reset}")
-        print("    ip a            - Show all active network interfaces and IP addresses")
-        print("    ping -c 4 <ip>  - Send 4 ICMP echo packets to test host availability")
-        print("    netstat -tuln   - List active listening network ports")
-        print("    ss -tulpn       - Display sockets mapping with process IDs")
-        print(f"\n  {green}PROCESS & MONITORING:{reset}")
-        print("    ps aux          - Snapshot of all active running processes")
-        print("    htop            - Dynamic interactive resource monitor (CPU/RAM)")
-        print("    kill -9 <PID>   - Force terminate a process by its ID")
-        print(cyan + "──────────────────────────────────────────────────────" + reset)
 #IDE on mobile =-)
     def edit(self, filename):
         cyan = "\033[96m"
@@ -292,12 +284,9 @@ class HACKER_DEVICE:
     def time(self):
         print("Current System Time:")
         print(datetime.now())
-#Select color
-    def color(self):
-        color = input("Enter the new primary color: ")
-        Colors.current_color = getattr(Colors, color.upper())
+    def batterry(self):
 #GitHub Functions
-    def github(self):
+     def github(self):
         print("GitHub Link:")
         print("https://github.com/Ghk1Tch")
     def githubrepo(self):
@@ -359,7 +348,6 @@ class HACKER_DEVICE:
         print(f" {cyan}reverse{reset} - Deploys custom reverse shell handler template")
         print(f" {cyan}stress{reset} - Performs high density HTTP flood stress test")
         print(f" {cyan}fastfetch{reset} - Display ghl1tch framework identity profile")
-        print(f" {cyan}bashhelper{reset} - Open built-in interactive Bash command guide")
         print(f" {cyan}time{reset} - Output accurate local network system time")
         print(f" {cyan}color{reset} - Switch global interface terminal color scheme")
         print(f" {cyan}github{reset} - Fetch developer portfolio profile link")
@@ -373,16 +361,16 @@ class HACKER_DEVICE:
         self.banner()
         while True:
             try:
-                command = input(f"{self.current_color}HACKER TERMINAL {Colors.RESET}> ").strip()
+                command = input(f"{self.current_color}> ghl1tch_terminal $ {Colors.RESET}> ").strip()
                 if not command:
                     continue
                 cmd_lower = command.lower()
                 if cmd_lower == 'exit':
                     break
+                elif cmd_lower == 'reg':
+                    self.register()
                 elif cmd_lower == 'update':
                     self.update()
-                elif cmd_lower == 'bashhelper':
-                    self.bashhelper()
                 elif cmd_lower == 'help':
                     self.help()
                 elif cmd_lower == 'netscan':
